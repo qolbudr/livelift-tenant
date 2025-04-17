@@ -5,11 +5,13 @@ import formidable from 'formidable';
 import { PrismaClient } from '@prisma/client';
 import fs from 'fs';
 import path from 'path';
+import cors from 'cors';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 const prisma = new PrismaClient();
 
+app.use(cors());
 app.use(express.json());
 app.use(check);
 
