@@ -1,0 +1,18 @@
+-- CreateTable
+CREATE TABLE `Live` (
+    `id` INTEGER NOT NULL AUTO_INCREMENT,
+    `title` VARCHAR(191) NOT NULL,
+    `videoId` INTEGER NOT NULL,
+    `streamKey` VARCHAR(191) NULL,
+    `rtmpUrl` VARCHAR(191) NULL,
+    `loop` BOOLEAN NOT NULL DEFAULT false,
+    `scheduleAt` DATETIME(3) NULL,
+    `live` BOOLEAN NOT NULL DEFAULT false,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- AddForeignKey
+ALTER TABLE `Live` ADD CONSTRAINT `Live_videoId_fkey` FOREIGN KEY (`videoId`) REFERENCES `Video`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;

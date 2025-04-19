@@ -12,6 +12,21 @@ model Video {
   title                 String
   description           String
   video                 String
+  live                  Live[]
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @default(now())
+}
+
+model Live {
+  id                    Int               @id @default(autoincrement())
+  title                 String
+  video                 Video             @relation(fields: [videoId], references: [id])
+  videoId               Int
+  streamKey             String?
+  rtmpUrl               String?
+  loop                  Boolean           @default(false)
+  scheduleAt            DateTime?
+  live                  Boolean           @default(false)
   createdAt             DateTime          @default(now())
   updatedAt             DateTime          @default(now())
 }

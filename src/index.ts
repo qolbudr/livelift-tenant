@@ -88,6 +88,78 @@ app.delete('/api/media/:id', async (req, res) => {
 })
 /* ============================== Media Route ================================ */
 
+/* ============================== Live Route ================================ */
+
+app.post('/api/live', async (req, res) => {
+  const { title, videoId } = req.body;
+
+  try {
+    const data = await prisma.live.create({ data: { title, videoId: videoId} })
+    res.status(200).json({ code: 200, message: 'Berhasil menambahkan live', data: data });
+  } catch (e) {
+    res.status(500).send({ message: `${e}`, code: 500 });
+  }
+});
+
+app.get('/api/live', async (req, res) => {
+  const { page = 1, limit = 10 } = req.query;
+
+  try {
+    const live = await prisma.live.findMany({
+      skip: (Number(page) - 1) * Number(limit),
+      take: Number(limit),
+      include: {
+        video: true,
+      }
+    });
+
+    const totalLive = await prisma.live.count();
+
+    res.status(200).json({
+      code: 200,
+      message: 'Berhasil mendapatkan data',
+      data: live,
+      count: totalLive,
+      totalPages: Math.ceil(totalLive / Number(limit)),
+      currentPage: Number(page),
+    });
+  } catch (e) {
+    res.status(500).send({ message: `${e}`, code: 500 });
+  }
+})
+
+app.patch('/api/live/:id', async (req, res) => {
+  const { id } = req.params;
+  const { title, videoId, streamKey, rtmpUrl, loop, scheduleAt, live } = req.body;
+
+  try {
+    const data = await prisma.live.update({ where: { id: Number(id) }, data: { title: title, videoId: videoId, streamKey: streamKey, rtmpUrl: rtmpUrl, loop: loop, scheduleAt: scheduleAt, live: live } })
+    res.status(200).json({ code: 200, message: 'Berhasil mengupdate live', data: data });
+  } catch (e) {
+    res.status(500).send({ message: `${e}`, code: 500 });
+  }
+})
+
+app.delete('/api/live/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const live = await prisma.live.findUnique({ where: { id: Number(id) } });
+    if (!live) {
+      res.status(404).json({ message: 'Live tidak ditemukan', code: 404 });
+      return;
+    }
+
+    await prisma.live.delete({ where: { id: Number(id) } });
+
+    res.status(200).json({ code: 200, message: 'Berhasil menghapus live' });
+  } catch (e) {
+    res.status(500).send({ message: `${e}`, code: 500 });
+  }
+})
+
+/* ============================== Media Route ================================ */
+
 app.get('/', (req, res) => {
   res.send('Hello from TypeScript + Express!');
 });
