@@ -2,10 +2,12 @@ import express from 'express';
 import { check } from './core/middleware/middleware';
 import { randomUUID } from 'crypto';
 import formidable from 'formidable';
-import { PrismaClient } from '@prisma/client';
+import { Live, PrismaClient, Video } from '@prisma/client';
 import fs from 'fs';
 import path from 'path';
 import cors from 'cors';
+import ffmpeg, { FfmpegCommand } from 'fluent-ffmpeg';
+import { CommandObject } from './core/types/command_object';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -15,6 +17,52 @@ app.use(cors());
 app.use(express.static('public'))
 app.use(express.json());
 app.use(check);
+
+let ffMpegProcess : CommandObject = {};
+
+const startStreaming = (live: Live, video: Video) => {
+const command = ffmpeg()
+  .input('./public/' + video.video)
+  .inputOptions('-re')
+  .videoCodec('libx264')
+  .audioCodec('aac')
+  .outputOptions([
+    '-preset veryfast',
+    '-g 50',
+    '-b:v 2500k',
+    '-b:a 128k',
+    '-f flv'
+  ])
+  .format('flv')
+  .on('start', commandLine => {
+    console.log('\n🚀 Memulai streaming ke YouTube...');
+    console.log('FFmpeg command:', commandLine);
+  })
+  .on('error', (err, stdout, stderr) => {
+    console.error('\n❌ Terjadi kesalahan saat streaming:');
+    console.error(err.message);
+  })
+  .on('end', () => {
+    console.log('\n✅ Streaming selesai.');
+    ffMpegProcess[live.uuid].run();
+  })
+  .output(live.rtmpUrl + '/' + live.streamKey)
+
+  ffMpegProcess[live.uuid] = command;
+  ffMpegProcess[live.uuid].run();
+
+  console.log(`\n🔴 Streaming dimulai dengan UUID: ${live.uuid}`);
+}
+
+const stopStreaming = (live: Live) => {
+  if (ffMpegProcess[live.uuid]) {
+    ffMpegProcess[live.uuid].kill('SIGKILL');
+    delete ffMpegProcess[live.uuid];
+    console.log(`\n🔴 Streaming dihentikan dengan UUID: ${live.uuid}`);
+  } else {
+    console.log('\n❌ Tidak ada streaming yang sedang berjalan.');
+  }
+}
 
 /* ============================== Media Route ================================ */
 
@@ -94,7 +142,8 @@ app.post('/api/live', async (req, res) => {
   const { title, videoId } = req.body;
 
   try {
-    const data = await prisma.live.create({ data: { title, videoId: videoId} })
+    const uuid = randomUUID();
+    const data = await prisma.live.create({ data: { title, uuid: uuid, videoId: videoId} })
     res.status(200).json({ code: 200, message: 'Berhasil menambahkan live', data: data });
   } catch (e) {
     res.status(500).send({ message: `${e}`, code: 500 });
@@ -130,11 +179,34 @@ app.get('/api/live', async (req, res) => {
 
 app.patch('/api/live/:id', async (req, res) => {
   const { id } = req.params;
-  const { title, videoId, streamKey, rtmpUrl, loop, scheduleAt, live } = req.body;
+  const { title, videoId, streamKey, rtmpUrl, loop } = req.body;
 
   try {
-    const data = await prisma.live.update({ where: { id: Number(id) }, data: { title: title, videoId: videoId, streamKey: streamKey, rtmpUrl: rtmpUrl, loop: loop, scheduleAt: scheduleAt, live: live } })
+    const data : Live = await prisma.live.update({ where: { id: Number(id) }, data: { title: title, videoId: videoId, streamKey: streamKey, rtmpUrl: rtmpUrl, loop: loop }})
+
+    if (data) {
+      const video = await prisma.video.findUnique({ where: { id: Number(videoId) } });
+      if (!video) {
+        res.status(404).json({ message: 'Video tidak ditemukan', code: 404 });
+        return;
+      }
+
+      startStreaming(data, video);
+    }
+
     res.status(200).json({ code: 200, message: 'Berhasil mengupdate live', data: data });
+  } catch (e) {
+    res.status(500).send({ message: `${e}`, code: 500 });
+  }
+})
+
+app.get('/api/live/:id/stop', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const live = await prisma.live.update({ where: { id: Number(id) }, data: { live: false } });
+    if(live) stopStreaming(live);
+    res.status(200).json({ code: 200, message: 'Berhasil menghentikan live' });
   } catch (e) {
     res.status(500).send({ message: `${e}`, code: 500 });
   }

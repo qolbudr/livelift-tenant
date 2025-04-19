@@ -19,6 +19,7 @@ model Video {
 
 model Live {
   id                    Int               @id @default(autoincrement())
+  uuid                  String
   title                 String
   video                 Video             @relation(fields: [videoId], references: [id])
   videoId               Int
