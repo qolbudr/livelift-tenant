@@ -18,35 +18,40 @@ app.use(express.static('public'))
 app.use(express.json());
 app.use(check);
 
-let ffMpegProcess : CommandObject = {};
+let ffMpegProcess: CommandObject = {};
 
 const startStreaming = (live: Live, video: Video) => {
-const command = ffmpeg()
-  .input('./public/' + video.video)
-  .inputOptions('-re')
-  .videoCodec('libx264')
-  .audioCodec('aac')
-  .outputOptions([
-    '-preset veryfast',
-    '-g 50',
-    '-b:v 2500k',
-    '-b:a 128k',
-    '-f flv'
-  ])
-  .format('flv')
-  .on('start', commandLine => {
-    console.log('\n🚀 Memulai streaming ke YouTube...');
-    console.log('FFmpeg command:', commandLine);
-  })
-  .on('error', (err, stdout, stderr) => {
-    console.error('\n❌ Terjadi kesalahan saat streaming:');
-    console.error(err.message);
-  })
-  .on('end', () => {
-    console.log('\n✅ Streaming selesai.');
-    ffMpegProcess[live.uuid].run();
-  })
-  .output(live.rtmpUrl + '/' + live.streamKey)
+  const command = ffmpeg()
+    .input('./public/' + video.video)
+    .inputOptions('-re')
+    .videoCodec('libx264')
+    .audioCodec('aac')
+    .outputOptions([
+      '-preset veryfast',
+      '-g 50',
+      '-b:v 2500k',
+      '-b:a 128k',
+      '-f flv'
+    ])
+    .format('flv')
+    .on('start', commandLine => {
+      console.log('\n🚀 Memulai streaming ke YouTube...');
+      console.log('FFmpeg command:', commandLine);
+    })
+    .on('error', (err, stdout, stderr) => {
+      console.error('\n❌ Terjadi kesalahan saat streaming:');
+      console.error(err.message);
+    })
+    .on('end', async () => {
+      console.log('\n✅ Streaming selesai.');
+      if (live.loop) {
+        ffMpegProcess[live.uuid].run();
+        return;
+      }
+
+      await prisma.live.update({ where: { id: live.id }, data: { live: false } })
+    })
+    .output(live.rtmpUrl + '/' + live.streamKey)
 
   ffMpegProcess[live.uuid] = command;
   ffMpegProcess[live.uuid].run();
@@ -143,7 +148,7 @@ app.post('/api/live', async (req, res) => {
 
   try {
     const uuid = randomUUID();
-    const data = await prisma.live.create({ data: { title, uuid: uuid, videoId: videoId} })
+    const data = await prisma.live.create({ data: { title, uuid: uuid, videoId: videoId } })
     res.status(200).json({ code: 200, message: 'Berhasil menambahkan live', data: data });
   } catch (e) {
     res.status(500).send({ message: `${e}`, code: 500 });
@@ -179,10 +184,10 @@ app.get('/api/live', async (req, res) => {
 
 app.patch('/api/live/:id', async (req, res) => {
   const { id } = req.params;
-  const { title, videoId, streamKey, rtmpUrl, loop } = req.body;
+  const { title, videoId, streamKey, rtmpUrl, loop, scheduleAt } = req.body;
 
   try {
-    const data : Live = await prisma.live.update({ where: { id: Number(id) }, data: { title: title, videoId: videoId, streamKey: streamKey, rtmpUrl: rtmpUrl, loop: loop }})
+    const data: Live = await prisma.live.update({ where: { id: Number(id) }, data: { title: title, videoId: videoId, streamKey: streamKey, rtmpUrl: rtmpUrl, loop: loop, scheduleAt: scheduleAt } })
 
     if (data) {
       const video = await prisma.video.findUnique({ where: { id: Number(videoId) } });
@@ -191,10 +196,15 @@ app.patch('/api/live/:id', async (req, res) => {
         return;
       }
 
-      startStreaming(data, video);
+      if (data.scheduleAt == null) {
+        startStreaming(data, video);
+        await prisma.live.update({ where: { id: Number(id) }, data: { live: true } });
+        res.status(200).json({ code: 200, message: 'Berhasil memulai live', data: data });
+      } else {
+        res.status(200).json({ code: 200, message: 'Berhasil mengupdate live', data: data });
+      }
     }
 
-    res.status(200).json({ code: 200, message: 'Berhasil mengupdate live', data: data });
   } catch (e) {
     res.status(500).send({ message: `${e}`, code: 500 });
   }
@@ -205,7 +215,7 @@ app.get('/api/live/:id/stop', async (req, res) => {
 
   try {
     const live = await prisma.live.update({ where: { id: Number(id) }, data: { live: false } });
-    if(live) stopStreaming(live);
+    if (live) stopStreaming(live);
     res.status(200).json({ code: 200, message: 'Berhasil menghentikan live' });
   } catch (e) {
     res.status(500).send({ message: `${e}`, code: 500 });
