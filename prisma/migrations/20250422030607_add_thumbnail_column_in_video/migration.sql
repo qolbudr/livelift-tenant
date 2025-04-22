@@ -5,4 +5,4 @@
 
 */
 -- AlterTable
-ALTER TABLE `video` ADD COLUMN `thumbnail` VARCHAR(191) NOT NULL;
+ALTER TABLE `Video` ADD COLUMN `thumbnail` VARCHAR(191) NOT NULL;

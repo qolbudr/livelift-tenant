@@ -2,7 +2,7 @@
 ALTER TABLE `history` DROP FOREIGN KEY `History_liveId_fkey`;
 
 -- DropForeignKey
-ALTER TABLE `live` DROP FOREIGN KEY `Live_videoId_fkey`;
+ALTER TABLE `Live` DROP FOREIGN KEY `Live_videoId_fkey`;
 
 -- DropIndex
 DROP INDEX `History_liveId_fkey` ON `history`;
