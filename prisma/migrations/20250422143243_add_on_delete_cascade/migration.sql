@@ -1,5 +1,5 @@
 -- DropForeignKey
-ALTER TABLE `history` DROP FOREIGN KEY `History_liveId_fkey`;
+ALTER TABLE `History` DROP FOREIGN KEY `History_liveId_fkey`;
 
 -- DropForeignKey
 ALTER TABLE `Live` DROP FOREIGN KEY `Live_videoId_fkey`;
