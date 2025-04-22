@@ -23,6 +23,20 @@ export const check = async (req: Request, res: Response<MainReponse<any>>, next:
       }
     }
 
+    if(req.path.includes('/api/live') && req.method === "PATCH") {
+      const body = req.body;
+
+      if(body.loop && !result.data.video_looping) {
+        res.status(400).json({ code: 400, message: 'Looping disabled in this package', data: null, token: undefined });
+        return;
+      }
+
+      if(body.scheduleAt && !result.data.scheduling) {
+        res.status(400).json({ code: 400, message: 'Scheduling disabled in this package', data: null, token: undefined });
+        return;
+      }
+    }
+
     next();
   } catch (error) {
     res.status(500).json({ code: 500, message: 'Internal Server Error', data: null, token: undefined });

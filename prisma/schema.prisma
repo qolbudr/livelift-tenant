@@ -22,13 +22,22 @@ model Live {
   id                    Int               @id @default(autoincrement())
   uuid                  String
   title                 String
-  video                 Video             @relation(fields: [videoId], references: [id])
+  video                 Video             @relation(fields: [videoId], references: [id], onDelete: Cascade)
   videoId               Int
   streamKey             String?
   rtmpUrl               String?
   loop                  Boolean           @default(false)
   scheduleAt            DateTime?
   live                  Boolean           @default(false)
+  history               History[]
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @default(now())
+}
+
+model History {
+  id                    Int               @id @default(autoincrement())
+  live                  Live              @relation(fields: [liveId], references: [id], onDelete: Cascade)
+  liveId                Int
   createdAt             DateTime          @default(now())
   updatedAt             DateTime          @default(now())
 }

@@ -35,9 +35,10 @@ const startStreaming = (live: Live, video: Video) => {
       '-f flv'
     ])
     .format('flv')
-    .on('start', commandLine => {
+    .on('start', async commandLine => {
       console.log('\n🚀 Memulai streaming ke YouTube...');
       console.log('FFmpeg command:', commandLine);
+      await prisma.history.create({ data: { liveId: live.id } })
     })
     .on('error', (err, stdout, stderr) => {
       console.error('\n❌ Terjadi kesalahan saat streaming:');
@@ -51,6 +52,7 @@ const startStreaming = (live: Live, video: Video) => {
       }
 
       await prisma.live.update({ where: { id: live.id }, data: { live: false } })
+      await prisma.history.updateMany({ where: { live: { uuid: live.uuid } }, data: { updatedAt: new Date() } })
     })
     .output(live.rtmpUrl + '/' + live.streamKey)
 
@@ -101,7 +103,7 @@ app.post('/api/upload', async (req, res) => {
           });
       });
 
-      const data = await prisma.video.create({ data: { title: title![0], thumbnail: video.newFilename.replace(/\.[^/.]+$/, '.png'),  description: description![0], video: video.newFilename } })
+      const data = await prisma.video.create({ data: { title: title![0], thumbnail: video.newFilename.replace(/\.[^/.]+$/, '.png'), description: description![0], video: video.newFilename } })
       return res.status(200).json({ code: 200, message: 'Berhasil menambahkan video', data: data });
     } catch (e) {
       return res.status(500).send({ message: `${e}`, code: 500 });
@@ -257,6 +259,38 @@ app.delete('/api/live/:id', async (req, res) => {
 })
 
 /* ============================== Media Route ================================ */
+
+
+/* ============================== History Route ================================ */
+
+app.get('/api/history', async (req, res) => {
+  const { page = 1, limit = 10 } = req.query;
+
+  try {
+    const history = await prisma.history.findMany({
+      skip: (Number(page) - 1) * Number(limit),
+      take: Number(limit),
+      include: {
+        live: true,
+      }
+    });
+
+    const tottalHistory = await prisma.history.count();
+
+    res.status(200).json({
+      code: 200,
+      message: 'Berhasil mendapatkan data',
+      data: history,
+      count: tottalHistory,
+      totalPages: Math.ceil(tottalHistory / Number(limit)),
+      currentPage: Number(page),
+    });
+  } catch (e) {
+    res.status(500).send({ message: `${e}`, code: 500 });
+  }
+})
+
+/* ============================== History Route ================================ */
 
 app.get('/', (req, res) => {
   res.send('Hello from TypeScript + Express!');
