@@ -8,6 +8,7 @@ import path from 'path';
 import cors from 'cors';
 import ffmpeg, { FfmpegCommand } from 'fluent-ffmpeg';
 import { CommandObject } from './core/types/command_object';
+import tz from './core/utils/timezone';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -87,7 +88,20 @@ app.post('/api/upload', async (req, res) => {
 
     try {
       const video = files.video[0];
-      const data = await prisma.video.create({ data: { title: title![0], description: description![0], video: video.newFilename } })
+      const videoPath = path.join(__dirname, '..', 'public', video.newFilename);
+      const thumbnailPath = path.join(__dirname, '..', 'public/thumbnail', video.newFilename.replace(/\.[^/.]+$/, '.png'));
+      const thumbnail = await new Promise((resolve, reject) => {
+        ffmpeg(videoPath)
+          .on('end', () => resolve(thumbnailPath))
+          .on('error', (err) => reject(err))
+          .screenshots({
+            count: 1,
+            folder: path.dirname(thumbnailPath),
+            filename: path.basename(thumbnailPath)
+          });
+      });
+
+      const data = await prisma.video.create({ data: { title: title![0], thumbnail: video.newFilename.replace(/\.[^/.]+$/, '.png'),  description: description![0], video: video.newFilename } })
       return res.status(200).json({ code: 200, message: 'Berhasil menambahkan video', data: data });
     } catch (e) {
       return res.status(500).send({ message: `${e}`, code: 500 });
@@ -132,7 +146,9 @@ app.delete('/api/media/:id', async (req, res) => {
     await prisma.video.delete({ where: { id: Number(id) } });
 
     const videoPath = path.join(__dirname, '..', 'public', video.video);
+    const thumbnailPath = path.join(__dirname, '..', 'public/thumbnail', video.thumbnail);
     fs.unlinkSync(videoPath);
+    fs.unlinkSync(thumbnailPath);
 
     res.status(200).json({ code: 200, message: 'Berhasil menghapus video' });
   } catch (e) {
@@ -187,7 +203,7 @@ app.patch('/api/live/:id', async (req, res) => {
   const { title, videoId, streamKey, rtmpUrl, loop, scheduleAt } = req.body;
 
   try {
-    const data: Live = await prisma.live.update({ where: { id: Number(id) }, data: { title: title, videoId: videoId, streamKey: streamKey, rtmpUrl: rtmpUrl, loop: loop, scheduleAt: scheduleAt } })
+    const data: Live = await prisma.live.update({ where: { id: Number(id) }, data: { title: title, videoId: videoId, streamKey: streamKey, rtmpUrl: rtmpUrl, loop: loop, scheduleAt: scheduleAt ? scheduleAt : null } })
 
     if (data) {
       const video = await prisma.video.findUnique({ where: { id: Number(videoId) } });
