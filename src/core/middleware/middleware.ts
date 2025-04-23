@@ -7,6 +7,12 @@ const prisma = new PrismaClient();
 export const check = async (req: Request, res: Response<MainReponse<any>>, next: NextFunction) => {
   try {
     dotenv.config();
+
+    if (req.path === "/api/cron-start" || req.path === "/") {
+      next();
+      return;
+    }
+
     const url = process.env.MAIN_URL;
     const response = await fetch(`${url}/api/check`, { method: 'GET', headers: { 'Authorization': req.headers.authorization || '' } });
     const result = await response.json();
@@ -25,6 +31,10 @@ export const check = async (req: Request, res: Response<MainReponse<any>>, next:
 
     if(req.path.includes('/api/live') && req.method === "PATCH") {
       const body = req.body;
+
+      req.body.max_quality = result.data.max_quality;
+      req.body.watermark = result.data.watermark;
+      req.body.custom_logo = result.data.custom_logo;
 
       if(body.loop && !result.data.video_looping) {
         res.status(400).json({ code: 400, message: 'Looping disabled in this package', data: null, token: undefined });
