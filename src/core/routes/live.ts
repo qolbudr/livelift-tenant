@@ -102,4 +102,19 @@ router.delete('/api/live/:id', async (req, res) => {
   }
 })
 
+router.get('/api/live/schedule', async (req, res) => {
+  const url = process.env.MAIN_URL;
+  const base = process.env.URL;
+  const response = await fetch(`${url}/api/auth/site?tenant=${base}`, { method: 'GET' });
+  const result = await response.json();
+
+  if (response.status !== 200) {
+    const live = await prisma.live.findMany({ where: { scheduleAt: { gt: new Date() } }, include: { video: true } });
+    live.forEach((item) => {
+      startStreaming(item, item.video, ffMpegProcess, result.data.max_quality, result.data.watermark);
+    })
+    return;
+  }
+})
+
 export default router;

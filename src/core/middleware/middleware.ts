@@ -8,7 +8,7 @@ export const check = async (req: Request, res: Response<MainReponse<any>>, next:
   try {
     dotenv.config();
 
-    if (req.path === "/api/cron-start" || req.path === "/") {
+    if (req.path === "/api/live/schedule" || req.path === "/") {
       next();
       return;
     }
