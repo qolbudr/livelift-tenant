@@ -31,7 +31,7 @@ router.get('/api/live', async (req, res) => {
         video: true,
       }
     });
-    
+
     res.status(200).json({
       code: 200,
       message: 'Berhasil mendapatkan data',
@@ -77,7 +77,7 @@ router.patch('/api/live/:id', async (req, res) => {
 router.get('/api/live/:id/stop', async (req, res) => {
   const { id } = req.params;
   try {
-    const live = await prisma.live.update({ where: { id: Number(id) }, data: { live: false } });
+    const live = await prisma.live.update({ where: { id: Number(id) }, data: { live: false, scheduleAt: null } });
     if (live) stopStreaming(live, ffMpegProcess);
     res.status(200).json({ code: 200, message: 'Berhasil menghentikan live' });
   } catch (e) {
@@ -108,13 +108,15 @@ router.get('/api/live/schedule', async (req, res) => {
   const response = await fetch(`${url}/api/auth/site?tenant=${base}`, { method: 'GET' });
   const result = await response.json();
 
-  if (response.status !== 200) {
-    const live = await prisma.live.findMany({ where: { scheduleAt: { gt: new Date() } }, include: { video: true } });
-    live.forEach((item) => {
+  if (result.data) {
+    const live = await prisma.live.findMany({ where: { scheduleAt: { lt: new Date() } }, include: { video: true } });
+    live.forEach(async (item) => {
       startStreaming(item, item.video, ffMpegProcess, result.data.max_quality, result.data.watermark);
+      await prisma.live.update({ where: { id: Number(item.id) }, data: { live: true } });
     })
-    return;
   }
+
+  res.status(200).json({ code: 200, message: 'Berhasil mendapatkan data', data: result.data });
 })
 
 export default router;
